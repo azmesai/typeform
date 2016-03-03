@@ -5,6 +5,7 @@ import json
 import urllib
 import re
 
+
 def lambda_handler(event, context):
     lastHourDateTime = int(time.time()) - 3600
     
@@ -12,19 +13,17 @@ def lambda_handler(event, context):
     response = urllib.urlopen(url)
     data = json.loads(response.read())
     
-    invite = False
     sendto = []
-    
     for response in data['responses']:
+        invite = False
+        email = ""
         for key, value in response['answers'].iteritems():
             if key.encode().startswith('yesno_') and value.encode() == "1":
                 invite = True
-            if key.encode().startswith('email'):
+            elif key.encode().startswith('email'):
                 email = value.encode()
         if invite and email:
             sendto.append( email )
-        invite = False
-        email = ""
     
     print sendto
     
@@ -40,3 +39,4 @@ def lambda_handler(event, context):
         print "Trying for email %s" % newbie
         f = urllib.urlopen('https://slack.com/api/users.admin.invite?t=%i' % int(time.time()) , data)
         print f.read()
+
