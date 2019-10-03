@@ -1,50 +1,53 @@
-#!/usr/bin/env python
-
 import time
 import json
-import urllib
-import re
-from contextlib import closing
+from urllib import request, parse
+import os
 
-FORMID = "FORMID"
-APIKEY = "APIKEY"
-DEFAULTCHANNELID = "DEFAULTCHANNELID"
-SLACKAPITOKEN = "SLACKAPITOKEN"
+# Slack Params
+DEFAULT_CHANNEL_ID = os.environ['DEFAULT_CHANNEL_ID']
+SLACK_API_TOKEN = os.environ['SLACK_API_TOKEN']
 
-FULL_NAME_FIELD = "textfield_10651691"
-AGREE_FIELD = "yesno_10651767"
-EMAIL_FIELD = "email_10651738"
+# Typeform Params
+FORM_ID = os.environ['FORM_ID']
+ACCESS_TOKEN = os.environ['ACCESS_TOKEN']
+FULL_NAME_FIELD = os.environ['FULL_NAME_FIELD']
+AGREE_FIELD = os.environ['AGREE_FIELD']
+EMAIL_FIELD = os.environ['EMAIL_FIELD']
 
 
 def send_invite(email, full_name):
-    data = urllib.urlencode({
+    params = parse.urlencode({
         'email': email,
-        'channels': DEFAULTCHANNELID,
+        'channels': DEFAULT_CHANNEL_ID,
         'first_name': full_name,
-        'token': SLACKAPITOKEN,
+        'token': SLACK_API_TOKEN,
         'set_active': 'true',
         '_attempts': '1'
-    })
-    print "Trying for email %s" % email
-    with closing(urllib.urlopen(
-            'https://slack.com/api/users.admin.invite?t=%i' % int(
-                time.time()), data)) as f:
-        print f.read()
+
+    }).encode("utf-8")
+
+    print("Trying for email %s" % email)
+
+    req = request.Request('https://slack.com/api/users.admin.invite?')
+    with request.urlopen(req, params) as response:
+        data = json.loads(response.read())
+        print(data)
 
 
 def lambda_handler(event, context):
-    lastHourDateTime = int(time.time()) - 3600
+    last_hour_date_time = int(time.time()) - 3600
+    url = ('https://api.typeform.com/forms/%s/responses?completed=true&since=%s' % (FORM_ID, last_hour_date_time))
+    headers = {'Content-Type': "application/json", "Authorization": "Bearer " + ACCESS_TOKEN}
+    req = request.Request(url=url, headers=headers)
 
-    url = ('https://api.typeform.com/v0/form/'
-           '%s?key=%s&completed=true&since=%s' % (
-               FORMID, APIKEY, lastHourDateTime))
-    with closing(urllib.urlopen(url)) as response:
+    with request.urlopen(req) as response:
         data = json.loads(response.read())
 
-    for response in data['responses']:
-        answers = response['answers']
-        email = answers[EMAIL_FIELD].encode()
-        invite = (answers[AGREE_FIELD] == "1")
-        full_name = answers[FULL_NAME_FIELD]
-        if invite and email:
-            send_invite(email, full_name)
+    for response in data['items']:
+        _data = {}
+        for i in response["answers"]:
+            if i["field"]["id"] in [FULL_NAME_FIELD, AGREE_FIELD, EMAIL_FIELD]:
+                _data[i["field"]["id"]] = i[i["type"]]
+
+        if _data[AGREE_FIELD] and _data[EMAIL_FIELD]:
+            send_invite(_data[EMAIL_FIELD], _data[FULL_NAME_FIELD])
