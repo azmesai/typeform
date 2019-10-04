@@ -45,9 +45,9 @@ def lambda_handler(event, context):
 
     for response in data['items']:
         _data = {}
-        for i in response["answers"]:
-            if i["field"]["id"] in [FULL_NAME_FIELD, AGREE_FIELD, EMAIL_FIELD]:
-                _data[i["field"]["id"]] = i[i["type"]]
+        for answer in response["answers"]:
+            if answer["field"]["id"] in [FULL_NAME_FIELD, AGREE_FIELD, EMAIL_FIELD]:
+                _data[answer["field"]["id"]] = answer[answer["type"]]
 
         if _data[AGREE_FIELD] and _data[EMAIL_FIELD]:
             send_invite(_data[EMAIL_FIELD], _data[FULL_NAME_FIELD])
